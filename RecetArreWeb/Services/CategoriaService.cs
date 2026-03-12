@@ -1,6 +1,6 @@
 
-
 using System.Net.Http.Json;
+using System.Text.Json;
 using RecetArreWeb.DTOs;
 
 namespace RecetArreWeb.Services
@@ -9,7 +9,7 @@ namespace RecetArreWeb.Services
     {
         Task<List<CategoriaDto>> ObtenerTodas();
         Task<CategoriaDto?> ObtenerCategoriaPorId(int id);
-        Task<CategoriaDto?> CrearCategoria(CategoriaDto categoriaDto);
+        Task<CategoriaDto?> CrearCategoria(CategoriaCreacionDto categoriaDto);
         Task<bool> ActualizarCategoria(int id, CategoriaModificacionDto categoriaModificacionDto);
         Task<bool> EliminarCategoria(int id);
     }
@@ -23,7 +23,7 @@ namespace RecetArreWeb.Services
             this.httpClient = httpClient;
         }
 
-        public async Task<List<CategoriaDto>> ObtenerTodasCategorias()
+        public async Task<List<CategoriaDto>> ObtenerTodas()
         {
             try
             {
@@ -49,7 +49,7 @@ namespace RecetArreWeb.Services
                 return null;
             }
         }
-        public async Task<CategoriaDto?> CrearCategoria(CategoriaDto categoriaDto)
+        public async Task<CategoriaDto?> CrearCategoria(CategoriaCreacionDto categoriaDto)
         {
             try
             {
@@ -58,16 +58,15 @@ namespace RecetArreWeb.Services
                 {
                     return await response.Content.ReadFromJsonAsync<CategoriaDto>();
                 }
-            
+
                 var error = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"Error al crear categoria: {error}");
-                return null;
-                
+                throw new InvalidOperationException(ConstruirMensajeError(response.StatusCode, error));
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al crear categoria: {ex.Message}");
-                return null;
+                throw;
             }
         }
 
@@ -76,12 +75,7 @@ namespace RecetArreWeb.Services
             try
             {
                 var response = await httpClient.PutAsJsonAsync($"{endpoint}/{id}", categoriaDto);
-                if (response.IsSuccessStatusCode)
-                {
-                    return await response.Content.ReadFromJsonAsync<bool>();
-                }
-                
-                return false;
+                return response.IsSuccessStatusCode;
             }
             catch (Exception ex)
             {
@@ -104,10 +98,43 @@ namespace RecetArreWeb.Services
             }
         }
 
-        public Task<List<CategoriaDto>> ObtenerTodas()
+        private static string ConstruirMensajeError(System.Net.HttpStatusCode statusCode, string? contenido)
         {
-            throw new NotImplementedException();
+            var mensajeApi = ExtraerMensaje(contenido);
+            if (!string.IsNullOrWhiteSpace(mensajeApi))
+            {
+                return mensajeApi;
+            }
+
+            if (statusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                return "Tu sesión no es válida o expiró. Cierra sesión e inicia sesión otra vez.";
+            }
+
+            return $"No se pudo completar la operación (HTTP {(int)statusCode}).";
         }
 
+        private static string? ExtraerMensaje(string? contenido)
+        {
+            if (string.IsNullOrWhiteSpace(contenido))
+            {
+                return null;
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(contenido);
+                if (doc.RootElement.TryGetProperty("mensaje", out var mensaje))
+                {
+                    return mensaje.GetString();
+                }
+            }
+            catch
+            {
+                // El contenido no era JSON, se ignora y se usa mensaje genérico.
+            }
+
+            return contenido;
+        }
     }
 }

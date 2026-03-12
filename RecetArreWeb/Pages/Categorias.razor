@@ -256,14 +256,7 @@
     {
         try
         {
-            if (categoriaService is CategoriaService categoriaServiceConcreto)
-            {
-                categorias = await categoriaServiceConcreto.ObtenerTodasCategorias();
-            }
-            else
-            {
-                categorias = await categoriaService.ObtenerTodas();
-            }
+            categorias = await categoriaService.ObtenerTodas();
         }
         catch (Exception ex)
         {
@@ -316,24 +309,22 @@
             if (categoriaEditando == null)
             {
                 // Crear nueva categoría
-                CategoriaDto? nuevaCategoria = new CategoriaDto
+                var nuevaCategoria = new CategoriaCreacionDto
                 {
                     Nombre = nombreCategoria,
                     Descripcion = string.IsNullOrWhiteSpace(descripcionCategoria) ? null : descripcionCategoria
                 };
 
                 var resultado = await categoriaService.CrearCategoria(nuevaCategoria);
-                
-                if (resultado != null)
+
+                if (resultado == null)
                 {
-                    mensajeExito = "Categoría creada exitosamente";
-                    await CargarCategorias();
-                    CerrarModal();
+                    throw new InvalidOperationException("El API no devolvió la categoría creada.");
                 }
-                else
-                {
-                    mensajeError = "No se pudo crear la categoría. Verifica que el nombre no esté duplicado.";
-                }
+
+                mensajeExito = "Categoría creada exitosamente";
+                await CargarCategorias();
+                CerrarModal();
             }
             else
             {
