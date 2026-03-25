@@ -1,12 +1,50 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@using System.Security.Claims
+@using RecetArreWeb.Auth
+@inject IAuthService authService
+@inject AuthenticationStateProvider authStateProvider
+@inject NavigationManager navigation
+
 <div class="page">
     <div class="sidebar">
         <NavMenu />
     </div>
 
     <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+        <div class="top-row px-3 px-md-4">
+            <div class="top-row-shell">
+                <div class="top-row-brand">
+                    @* <span class="top-row-kicker">Panel de recetas</span>
+                    <a class="top-row-title" href="">RecetArreWeb</a> *@
+                </div>
+
+                <AuthorizeView>
+                    <Authorized Context="authContext">
+                        @{
+                            var nombreUsuario = ObtenerNombreUsuario(authContext.User);
+                        }
+
+                        <div class="top-row-user-area">
+                            <div class="top-row-user-info">
+                                @* <span class="top-row-user-label">Sesión activa</span> *@
+                                <span class="top-row-user-name">@nombreUsuario</span>
+                            </div>
+
+                            <a class="top-row-login"
+                               href="/login"
+                               @onclick="CerrarSesion"
+                               @onclick:preventDefault="true">
+                                <span class="bi bi-box-arrow-right"></span> Cerrar sesión
+                            </a>
+                        </div>
+                    </Authorized>
+                    <NotAuthorized>
+                        <a class="top-row-login" href="/login">
+                            <span class="bi bi-box-arrow-in-right"></span> Iniciar sesión
+                        </a>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </div>
         </div>
 
         <article class="content px-4">
@@ -14,3 +52,46 @@
         </article>
     </main>
 </div>
+
+@code {
+    private async Task CerrarSesion()
+    {
+        await authService.Logout();
+
+        if (authStateProvider is AuthStateProvider proveedor)
+        {
+            proveedor.NotificarLogout();
+        }
+
+        navigation.NavigateTo("/login", forceLoad: true);
+    }
+
+    private static string ObtenerNombreUsuario(ClaimsPrincipal user)
+    {
+        var nombre = user.FindFirst(ClaimTypes.Name)?.Value
+            ?? user.FindFirst("name")?.Value
+            ?? user.FindFirst(ClaimTypes.Email)?.Value
+            ?? user.FindFirst("email")?.Value
+            ?? "Mi cuenta";
+
+        if (nombre.Contains('@'))
+        {
+            nombre = nombre.Split('@')[0];
+        }
+
+        return FormatearNombre(nombre);
+    }
+
+    private static string FormatearNombre(string nombre)
+    {
+        var limpio = nombre.Replace('.', ' ').Replace('_', ' ').Replace('-', ' ').Trim();
+        if (string.IsNullOrWhiteSpace(limpio))
+        {
+            return "Mi cuenta";
+        }
+
+        return string.Join(" ",
+            limpio.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(p => char.ToUpperInvariant(p[0]) + p[1..].ToLowerInvariant()));
+    }
+}
