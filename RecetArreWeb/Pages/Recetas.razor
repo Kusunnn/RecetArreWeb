@@ -3,6 +3,7 @@
 @using System.Text.RegularExpressions
 @attribute [Authorize]
 @inject IRecetaService recetaService
+@inject IComentarioService comentarioService
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Gestión de Recetas</PageTitle>
@@ -83,6 +84,7 @@
             @foreach (var receta in RecetasFiltradas)
             {
                 var instruccionesVisibles = recetasConInstruccionesVisibles.Contains(receta.Id);
+                var comentarios = ObtenerComentarios(receta.Id);
                 <div class="col-12 col-sm-6 col-md-4 col-lg-3 mb-3">
                     <div class="card h-100 border-0 shadow-sm">
                         <div class="card-body d-flex flex-column">
@@ -90,7 +92,7 @@
                                 <h5 class="card-title text-brand mb-0">@receta.Titulo</h5>
                                 <button class="btn btn-sm btn-link text-muted recipe-instructions-toggle"
                                         type="button"
-                                        title="Ver instrucciones"
+                                        title="Ver detalles"
                                         aria-expanded="@instruccionesVisibles"
                                         @onclick="() => ToggleInstrucciones(receta.Id)">
                                     <span class="bi @(instruccionesVisibles ? "bi-x-lg" : "bi-three-dots-vertical")"></span>
@@ -104,7 +106,12 @@
                             @if (instruccionesVisibles)
                             {
                                 <div class="recipe-instructions-panel border rounded bg-light p-3 mb-3">
-                                    <small class="recipe-instructions-label d-block mb-2">Instrucciones</small>
+                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                                        <small class="recipe-instructions-label d-block mb-0">Instrucciones</small>
+                                        <span class="badge bg-light text-dark border recipe-comments-badge">
+                                            <span class="bi bi-chat-left-text"></span> @comentarios.Count comentario@(comentarios.Count == 1 ? "" : "s")
+                                        </span>
+                                    </div>
                                     @{
                                         var pasos = ObtenerPasosInstrucciones(receta.Instrucciones).ToList();
                                     }
@@ -121,6 +128,32 @@
                                     {
                                         <p class="recipe-instructions-text mb-0">@pasos[0]</p>
                                     }
+
+                                    <div class="recipe-comments-section pt-3 mt-3 border-top">
+                                        <small class="recipe-instructions-label d-block mb-3">Comentarios</small>
+
+                                        @if (comentarios.Any())
+                                        {
+                                            <div class="d-grid gap-2">
+                                                @foreach (var comentario in comentarios)
+                                                {
+                                                    <div class="recipe-comment-card border rounded p-3">
+                                                        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                                            <strong class="recipe-comment-author">@comentario.UsuarioNombre</strong>
+                                                            <small class="text-muted">@FormatearFecha(comentario.CreadoUtc)</small>
+                                                        </div>
+                                                        <p class="recipe-comment-text mb-0">@comentario.Contenido</p>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="recipe-comment-empty border rounded p-3">
+                                                Esta receta todavía no tiene comentarios.
+                                            </div>
+                                        }
+                                    </div>
                                 </div>
                             }
 
@@ -253,6 +286,7 @@
 
 @code {
     private List<RecetaDto>? recetas;
+    private Dictionary<int, List<ComentarioDto>> comentariosPorReceta = new();
     private string busqueda = "";
     private bool mostrarModal = false;
     private bool guardando = false;
@@ -291,12 +325,24 @@
         try
         {
             recetas = await recetaService.ObtenerTodas();
+            await CargarComentarios();
         }
         catch (Exception ex)
         {
             mensajeError = $"Error al cargar recetas: {ex.Message}";
             recetas = new List<RecetaDto>();
+            comentariosPorReceta = new Dictionary<int, List<ComentarioDto>>();
         }
+    }
+
+    private async Task CargarComentarios()
+    {
+        var comentarios = await comentarioService.ObtenerTodos();
+        comentariosPorReceta = comentarios
+            .GroupBy(c => c.RecetaId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(c => c.CreadoUtc).ToList());
     }
 
     private void AbrirModalCrear()
@@ -462,5 +508,20 @@
             .ToList();
 
         return pasos.Count == 0 ? new[] { texto } : pasos;
+    }
+
+    private List<ComentarioDto> ObtenerComentarios(int recetaId)
+    {
+        if (comentariosPorReceta.TryGetValue(recetaId, out var comentarios))
+        {
+            return comentarios;
+        }
+
+        return new List<ComentarioDto>();
+    }
+
+    private static string FormatearFecha(DateTime fecha)
+    {
+        return fecha == default ? "-" : fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
     }
 }

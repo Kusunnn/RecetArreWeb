@@ -140,3 +140,32 @@ code {
     color: #495057;
     line-height: 1.6;
 }
+
+.recipe-comments-badge {
+    font-weight: 600;
+}
+
+.recipe-comments-section {
+    border-color: #f0e4c6 !important;
+}
+
+.recipe-comment-card {
+    background: #fff;
+    border-color: #eadfca !important;
+    box-shadow: 0 6px 18px rgba(122, 86, 26, 0.06);
+}
+
+.recipe-comment-author {
+    color: #5a3c00;
+}
+
+.recipe-comment-text {
+    color: #495057;
+    line-height: 1.55;
+    white-space: pre-line;
+}
+
+.recipe-comment-empty {
+    background: rgba(255, 255, 255, 0.72);
+    color: #6c757d;
+}
