@@ -1,7 +1,366 @@
-﻿@page "/"
+@page "/"
+@using System.Globalization
+@using RecetArreWeb.DTOs
+@inject IRankingService rankingService
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Ranking Semanal</PageTitle>
 
-<h1>Mario Díaz</h1>
+<div class="home-ranking-page">
+    <section class="home-ranking-hero">
+        <div class="home-ranking-copy">
+            <span class="home-ranking-kicker">Home</span>
+            <h1>Ranking semanal de recetas</h1>
+            <p class="mb-0">
+                Las posiciones se calculan por rating promedio dentro de la semana elegida.
+                En empates, sube la receta con más votos.
+            </p>
+        </div>
 
-Welcome to your new app.
+        <div class="home-ranking-filter">
+            <label for="ranking-week" class="form-label">Semana</label>
+            <select id="ranking-week"
+                    class="form-select"
+                    value="@semanaSeleccionada"
+                    @onchange="CambiarSemana">
+                @foreach (var semana in semanasDisponibles)
+                {
+                    <option value="@semana.Valor">@semana.Texto</option>
+                }
+            </select>
+        </div>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(mensajeError))
+    {
+        <div class="alert alert-danger mt-4" role="alert">
+            <strong>Error:</strong> @mensajeError
+        </div>
+    }
+
+    <section class="home-ranking-summary" aria-label="Resumen del ranking">
+        <div class="home-ranking-summary-item">
+            <span class="home-ranking-summary-label">Periodo</span>
+            <strong>@PeriodoSeleccionado</strong>
+        </div>
+        <div class="home-ranking-summary-item">
+            <span class="home-ranking-summary-label">Recetas en ranking</span>
+            <strong>@rankingSemanal.Count</strong>
+        </div>
+        <div class="home-ranking-summary-item">
+            <span class="home-ranking-summary-label">Ratings registrados</span>
+            <strong>@TotalRatingsSemana</strong>
+        </div>
+        <div class="home-ranking-summary-item">
+            <span class="home-ranking-summary-label">Promedio semanal</span>
+            <strong>@FormatearRating(PromedioGeneralSemana)/5</strong>
+        </div>
+    </section>
+
+    @if (cargando)
+    {
+        <section class="home-ranking-state">
+            <div class="spinner-border text-brand" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="text-muted mb-0">Calculando ranking semanal...</p>
+        </section>
+    }
+    else if (!rankingSemanal.Any())
+    {
+        <section class="home-ranking-empty">
+            <h2>No hay recetas calificadas en esta semana</h2>
+            <p class="mb-0">
+                Cuando lleguen nuevos ratings dentro del periodo seleccionado, el ranking aparecerá aquí.
+            </p>
+        </section>
+    }
+    else
+    {
+        var recetaDestacada = rankingSemanal[0];
+        var restoRanking = rankingSemanal.Skip(1).ToList();
+
+        <section class="home-ranking-board">
+            <article class="home-ranking-featured">
+                <div class="home-ranking-position-block">
+                    <span class="home-ranking-position-label">Puesto</span>
+                    <strong>#@recetaDestacada.Posicion</strong>
+                </div>
+
+                <div class="home-ranking-featured-content">
+                    <div class="home-ranking-featured-header">
+                        <div>
+                            <span class="home-ranking-kicker">Receta líder</span>
+                            <h2>@recetaDestacada.Titulo</h2>
+                        </div>
+                        <div class="home-ranking-score-box">
+                            <span class="home-ranking-score-value">@FormatearRating(recetaDestacada.PromedioRating)</span>
+                            <span class="home-ranking-score-suffix">/5</span>
+                        </div>
+                    </div>
+
+                    <p class="home-ranking-description">@ObtenerDescripcionCorta(recetaDestacada.Descripcion)</p>
+
+                    <div class="home-ranking-stars" aria-label="Rating promedio">
+                        @for (var estrella = 1; estrella <= 5; estrella++)
+                        {
+                            <span class="bi @ObtenerClaseEstrella(recetaDestacada.PromedioRating, estrella)"></span>
+                        }
+                    </div>
+
+                    <div class="home-ranking-meta">
+                        <span><span class="bi bi-star-fill"></span> @recetaDestacada.TotalRatings rating@(recetaDestacada.TotalRatings == 1 ? string.Empty : "s")</span>
+                        <span><span class="bi bi-stopwatch"></span> @ObtenerTiempoTotal(recetaDestacada) min totales</span>
+                        <span><span class="bi bi-people"></span> @recetaDestacada.Porciones porciones</span>
+                        <span><span class="bi bi-clock-history"></span> Actualizada @FormatearFecha(recetaDestacada.ModificadoUtc)</span>
+                    </div>
+                </div>
+            </article>
+
+            @if (restoRanking.Any())
+            {
+                <div class="home-ranking-list">
+                    @foreach (var receta in restoRanking)
+                    {
+                        <article class="home-ranking-row" @key="receta.RecetaId">
+                            <div class="home-ranking-row-position">#@receta.Posicion</div>
+
+                            <div class="home-ranking-row-main">
+                                <div class="home-ranking-row-top">
+                                    <div>
+                                        <h3>@receta.Titulo</h3>
+                                        <p class="mb-0">@ObtenerDescripcionCorta(receta.Descripcion)</p>
+                                    </div>
+
+                                    <div class="home-ranking-row-score">
+                                        <strong>@FormatearRating(receta.PromedioRating)</strong>
+                                        <span>/5</span>
+                                    </div>
+                                </div>
+
+                                <div class="home-ranking-row-meta">
+                                    <span>@receta.TotalRatings rating@(receta.TotalRatings == 1 ? string.Empty : "s")</span>
+                                    <span>@ObtenerTiempoTotal(receta) min</span>
+                                    <span>@receta.Porciones porciones</span>
+                                    <span>@FormatearFecha(receta.ModificadoUtc)</span>
+                                </div>
+
+                                <div class="home-ranking-bar" aria-hidden="true">
+                                    <span style="width: @ObtenerAnchoBarra(receta.PromedioRating);"></span>
+                                </div>
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private static readonly CultureInfo Cultura = CultureInfo.GetCultureInfo("es-MX");
+
+    private readonly List<SemanaRankingOption> semanasDisponibles = new();
+    private List<RankingRecetaDto> rankingSemanal = new();
+    private bool cargando = true;
+    private string semanaSeleccionada = string.Empty;
+    private string mensajeError = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ConstruirSemanasDisponibles();
+        semanaSeleccionada = semanasDisponibles.FirstOrDefault()?.Valor ?? string.Empty;
+        await CargarRanking();
+    }
+
+    private string PeriodoSeleccionado
+    {
+        get
+        {
+            var semana = ObtenerSemanaSeleccionada();
+            return semana is null
+                ? "Sin periodo"
+                : FormatearRangoSemana(semana.InicioLocal, semana.FinLocal);
+        }
+    }
+
+    private int TotalRatingsSemana => rankingSemanal.Sum(r => r.TotalRatings);
+
+    private decimal PromedioGeneralSemana
+    {
+        get
+        {
+            var totalRatings = TotalRatingsSemana;
+            if (totalRatings == 0)
+            {
+                return 0m;
+            }
+
+            return rankingSemanal.Sum(r => r.PromedioRating * r.TotalRatings) / totalRatings;
+        }
+    }
+
+    private async Task CambiarSemana(ChangeEventArgs e)
+    {
+        semanaSeleccionada = e.Value?.ToString() ?? string.Empty;
+        await CargarRanking();
+    }
+
+    private async Task CargarRanking()
+    {
+        cargando = true;
+        mensajeError = string.Empty;
+
+        try
+        {
+            var semana = ObtenerSemanaSeleccionada();
+            if (semana is null)
+            {
+                rankingSemanal = new List<RankingRecetaDto>();
+                return;
+            }
+
+            var inicioUtc = ConvertirLocalAUtc(semana.InicioLocal);
+            var finUtc = ConvertirLocalAUtc(semana.FinLocal);
+
+            rankingSemanal = await rankingService.ObtenerRankingSemanal(inicioUtc, finUtc, 10);
+        }
+        catch (Exception ex)
+        {
+            rankingSemanal = new List<RankingRecetaDto>();
+            mensajeError = $"No fue posible cargar el ranking: {ex.Message}";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private void ConstruirSemanasDisponibles()
+    {
+        semanasDisponibles.Clear();
+
+        var inicioSemanaActual = ObtenerInicioSemana(DateTime.Today);
+
+        for (var indice = 0; indice < 6; indice++)
+        {
+            var inicio = inicioSemanaActual.AddDays(-7 * indice);
+            var fin = inicio.AddDays(7);
+
+            semanasDisponibles.Add(new SemanaRankingOption
+            {
+                Valor = inicio.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                Texto = ObtenerEtiquetaSemana(indice, inicio, fin),
+                InicioLocal = inicio,
+                FinLocal = fin
+            });
+        }
+    }
+
+    private SemanaRankingOption? ObtenerSemanaSeleccionada()
+    {
+        return semanasDisponibles.FirstOrDefault(s => s.Valor == semanaSeleccionada)
+            ?? semanasDisponibles.FirstOrDefault();
+    }
+
+    private static DateTime ObtenerInicioSemana(DateTime fecha)
+    {
+        var diasDesdeLunes = ((int)fecha.DayOfWeek + 6) % 7;
+        return fecha.Date.AddDays(-diasDesdeLunes);
+    }
+
+    private static DateTime ConvertirLocalAUtc(DateTime fechaLocal)
+    {
+        return new DateTime(
+            fechaLocal.Year,
+            fechaLocal.Month,
+            fechaLocal.Day,
+            0,
+            0,
+            0,
+            DateTimeKind.Local).ToUniversalTime();
+    }
+
+    private static string ObtenerEtiquetaSemana(int indice, DateTime inicio, DateTime fin)
+    {
+        return indice switch
+        {
+            0 => $"Esta semana · {FormatearRangoSemana(inicio, fin)}",
+            1 => $"Semana pasada · {FormatearRangoSemana(inicio, fin)}",
+            _ => $"{FormatearRangoSemana(inicio, fin)}"
+        };
+    }
+
+    private static string FormatearRangoSemana(DateTime inicio, DateTime fin)
+    {
+        var finVisible = fin.AddDays(-1);
+        var mesInicio = inicio.ToString("MMM", Cultura).Replace(".", string.Empty).ToLowerInvariant();
+        var mesFin = finVisible.ToString("MMM", Cultura).Replace(".", string.Empty).ToLowerInvariant();
+
+        if (inicio.Month == finVisible.Month)
+        {
+            return $"{inicio.Day} - {finVisible.Day} {mesInicio}";
+        }
+
+        return $"{inicio.Day} {mesInicio} - {finVisible.Day} {mesFin}";
+    }
+
+    private static string FormatearFecha(DateTime fechaUtc)
+    {
+        if (fechaUtc == default)
+        {
+            return "-";
+        }
+
+        return fechaUtc.ToLocalTime().ToString("dd MMM", Cultura).Replace(".", string.Empty).ToLowerInvariant();
+    }
+
+    private static string FormatearRating(decimal rating)
+    {
+        return rating % 1 == 0 ? rating.ToString("0", Cultura) : rating.ToString("0.0", Cultura);
+    }
+
+    private static string ObtenerDescripcionCorta(string? descripcion)
+    {
+        if (string.IsNullOrWhiteSpace(descripcion))
+        {
+            return "Sin descripción disponible.";
+        }
+
+        var texto = descripcion.Trim();
+        return texto.Length <= 140 ? texto : $"{texto[..137].TrimEnd()}...";
+    }
+
+    private static int ObtenerTiempoTotal(RankingRecetaDto receta)
+    {
+        return receta.TiempoPreparacionMinutos + receta.TiempoCoccionMinutos;
+    }
+
+    private static string ObtenerClaseEstrella(decimal rating, int posicion)
+    {
+        if (rating >= posicion)
+        {
+            return "bi-star-fill";
+        }
+
+        if (rating >= posicion - 0.5m)
+        {
+            return "bi-star-half";
+        }
+
+        return "bi-star";
+    }
+
+    private static string ObtenerAnchoBarra(decimal rating)
+    {
+        var ancho = Math.Max(18m, Math.Min(100m, rating / 5m * 100m));
+        return $"{ancho.ToString("0.#", CultureInfo.InvariantCulture)}%";
+    }
+
+    private sealed class SemanaRankingOption
+    {
+        public string Valor { get; set; } = string.Empty;
+        public string Texto { get; set; } = string.Empty;
+        public DateTime InicioLocal { get; set; }
+        public DateTime FinLocal { get; set; }
+    }
+}

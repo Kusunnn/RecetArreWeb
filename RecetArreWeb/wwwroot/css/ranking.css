@@ -1,0 +1,360 @@
+.home-ranking-page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 1.2rem 0 3rem;
+}
+
+.home-ranking-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.8fr) minmax(260px, 320px);
+    gap: 1.5rem;
+    align-items: end;
+    padding: 2rem;
+    border: 1px solid rgba(63, 114, 175, 0.14);
+    border-radius: 28px;
+    background:
+        radial-gradient(circle at top right, rgba(249, 168, 38, 0.16), transparent 34%),
+        linear-gradient(135deg, #ffffff 0%, #f5f8fc 58%, #edf3fa 100%);
+    box-shadow: 0 24px 55px rgba(31, 41, 55, 0.08);
+}
+
+.home-ranking-kicker {
+    display: inline-block;
+    margin-bottom: 0.85rem;
+    color: #7a8797;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.home-ranking-copy h1 {
+    margin-bottom: 0.85rem;
+    color: #18212b;
+    font-size: clamp(2rem, 3.8vw, 3.2rem);
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+}
+
+.home-ranking-copy p {
+    max-width: 42rem;
+    color: #5e6b7b;
+    font-size: 1rem;
+    line-height: 1.65;
+}
+
+.home-ranking-filter {
+    padding: 1rem 1rem 1.1rem;
+    border: 1px solid rgba(63, 114, 175, 0.12);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.86);
+}
+
+.home-ranking-filter .form-label {
+    margin-bottom: 0.55rem;
+    color: #425164;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.home-ranking-filter .form-select {
+    min-height: 3rem;
+    border-color: rgba(63, 114, 175, 0.18);
+    box-shadow: none;
+}
+
+.home-ranking-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1.35rem;
+}
+
+.home-ranking-summary-item {
+    padding: 1rem 1.1rem;
+    border: 1px solid rgba(24, 33, 43, 0.08);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.8);
+}
+
+.home-ranking-summary-label {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: #7a8797;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.home-ranking-summary-item strong {
+    color: #18212b;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.home-ranking-state,
+.home-ranking-empty {
+    margin-top: 1.5rem;
+    padding: 3rem 1.5rem;
+    border: 1px solid rgba(24, 33, 43, 0.08);
+    border-radius: 24px;
+    background: #fff;
+    text-align: center;
+}
+
+.home-ranking-state {
+    display: grid;
+    justify-items: center;
+    gap: 1rem;
+}
+
+.home-ranking-empty h2 {
+    margin-bottom: 0.6rem;
+    color: #18212b;
+    font-size: 1.4rem;
+}
+
+.home-ranking-empty p {
+    color: #6b7280;
+}
+
+.home-ranking-board {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+}
+
+.home-ranking-featured {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 1.25rem;
+    padding: 1.5rem;
+    border-radius: 28px;
+    background: linear-gradient(180deg, #1f3253 0%, #17253b 100%);
+    color: #fff;
+    box-shadow: 0 26px 48px rgba(18, 27, 42, 0.22);
+}
+
+.home-ranking-position-block {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 1rem;
+    border-radius: 22px;
+    background: linear-gradient(180deg, rgba(249, 168, 38, 0.98) 0%, rgba(230, 142, 12, 0.98) 100%);
+    color: #422400;
+}
+
+.home-ranking-position-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.home-ranking-position-block strong {
+    font-size: 2.35rem;
+    line-height: 1;
+}
+
+.home-ranking-featured-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: start;
+}
+
+.home-ranking-featured-header h2 {
+    margin: 0;
+    font-size: 2rem;
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+}
+
+.home-ranking-score-box {
+    flex-shrink: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.15rem;
+    padding: 0.7rem 0.9rem;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.09);
+}
+
+.home-ranking-score-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.home-ranking-score-suffix {
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.home-ranking-description {
+    margin: 1rem 0 0;
+    color: rgba(255, 255, 255, 0.82);
+    line-height: 1.65;
+}
+
+.home-ranking-stars {
+    display: flex;
+    gap: 0.3rem;
+    margin-top: 1rem;
+    color: #ffd37a;
+    font-size: 1rem;
+}
+
+.home-ranking-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem 1rem;
+    margin-top: 1.15rem;
+    color: rgba(255, 255, 255, 0.74);
+    font-size: 0.92rem;
+}
+
+.home-ranking-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.home-ranking-list {
+    display: grid;
+    gap: 0.95rem;
+}
+
+.home-ranking-row {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+    padding: 1.15rem;
+    border: 1px solid rgba(24, 33, 43, 0.08);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.94);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.home-ranking-row:hover {
+    transform: translateY(-2px);
+    border-color: rgba(63, 114, 175, 0.2);
+    box-shadow: 0 16px 32px rgba(24, 33, 43, 0.08);
+}
+
+.home-ranking-row-position {
+    display: grid;
+    place-items: center;
+    min-height: 72px;
+    border-radius: 18px;
+    background: #f4f7fb;
+    color: #334155;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.home-ranking-row-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: start;
+}
+
+.home-ranking-row-top h3 {
+    margin: 0 0 0.35rem;
+    color: #18212b;
+    font-size: 1.1rem;
+}
+
+.home-ranking-row-top p {
+    color: #667586;
+    line-height: 1.55;
+}
+
+.home-ranking-row-score {
+    flex-shrink: 0;
+    color: #18212b;
+}
+
+.home-ranking-row-score strong {
+    font-size: 1.55rem;
+    line-height: 1;
+}
+
+.home-ranking-row-score span {
+    color: #7a8797;
+    font-weight: 600;
+}
+
+.home-ranking-row-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem 1rem;
+    margin-top: 0.9rem;
+    color: #7a8797;
+    font-size: 0.9rem;
+}
+
+.home-ranking-bar {
+    height: 8px;
+    margin-top: 0.9rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #edf2f7;
+}
+
+.home-ranking-bar span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #3f72af 0%, #5b8fce 55%, #f9a826 100%);
+}
+
+@media (max-width: 991.98px) {
+    .home-ranking-hero,
+    .home-ranking-board,
+    .home-ranking-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .home-ranking-featured {
+        grid-template-columns: 1fr;
+    }
+
+    .home-ranking-position-block {
+        flex-direction: row;
+        align-items: center;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .home-ranking-page {
+        padding-top: 0.4rem;
+    }
+
+    .home-ranking-hero,
+    .home-ranking-featured,
+    .home-ranking-row {
+        padding: 1.1rem;
+    }
+
+    .home-ranking-featured-header,
+    .home-ranking-row-top {
+        flex-direction: column;
+    }
+
+    .home-ranking-row {
+        grid-template-columns: 1fr;
+    }
+
+    .home-ranking-row-position {
+        min-height: 56px;
+    }
+}

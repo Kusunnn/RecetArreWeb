@@ -8,6 +8,8 @@ namespace RecetArreWeb.Services
         Task<List<ComentarioDto>> ObtenerTodos();
         Task<List<ComentarioDto>> ObtenerPorReceta(int recetaId);
         Task<ComentarioDto?> CrearComentario(ComentarioCreacionDto comentarioDto);
+        Task<bool> ActualizarComentario(int id, ComentarioModificacionDto comentarioDto);
+        Task<bool> EliminarComentario(int id);
     }
 
     public class ComentarioService : IComentarioService
@@ -66,6 +68,34 @@ namespace RecetArreWeb.Services
             {
                 Console.WriteLine($"Error al crear comentario: {ex.Message}");
                 return null;
+            }
+        }
+
+        public async Task<bool> ActualizarComentario(int id, ComentarioModificacionDto comentarioDto)
+        {
+            try
+            {
+                var response = await httpClient.PutAsJsonAsync($"{endpoint}/{id}", comentarioDto);
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al actualizar comentario {id}: {ex.Message}");
+                return false;
+            }
+        }
+
+        public async Task<bool> EliminarComentario(int id)
+        {
+            try
+            {
+                var response = await httpClient.DeleteAsync($"{endpoint}/{id}");
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al eliminar comentario {id}: {ex.Message}");
+                return false;
             }
         }
     }

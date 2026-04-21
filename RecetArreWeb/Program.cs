@@ -33,7 +33,10 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICategoriaService, CategoriaService>();
 builder.Services.AddScoped<IRecetaService, RecetaService>();
 builder.Services.AddScoped<IComentarioService, ComentarioService>();
+builder.Services.AddScoped<IRatingService, RatingService>();
+builder.Services.AddScoped<IRankingService, RankingService>();
 //TODO: Todos los demas servicios ejemplo ICategoriaService, IIngredienteService
+
 
 // Configurar autenticacion
 builder.Services.AddAuthorizationCore();

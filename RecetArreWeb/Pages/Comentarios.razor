@@ -1,9 +1,13 @@
 @page "/comentarios"
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 @using System.Text.RegularExpressions
 @attribute [Authorize]
 @inject IRecetaService recetaService
 @inject IComentarioService comentarioService
+@inject AuthenticationStateProvider authStateProvider
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Comentarios</PageTitle>
 
@@ -13,7 +17,7 @@
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <h1 class="h3 text-brand mb-1">Comentarios de Recetas</h1>
-                    <p class="text-muted mb-0">Consulta cada receta completa y agrega comentarios con tu usuario autenticado.</p>
+                    <p class="text-muted mb-0">Consulta cada receta completa y administra comentarios por receta.</p>
                 </div>
                 <button class="btn btn-brand" @onclick="CargarContenido">
                     <span class="bi bi-arrow-clockwise"></span> Recargar
@@ -82,7 +86,7 @@
             <div class="col-12">
                 <div class="alert alert-info">
                     <h5 class="alert-heading">No hay recetas</h5>
-                    <p class="mb-0">Primero crea una receta para poder recibir comentarios.</p>
+                    <p class="mb-0">Primero crea una receta para poder administrar comentarios.</p>
                 </div>
             </div>
         }
@@ -122,7 +126,7 @@
                                 </div>
 
                                 <button class="btn btn-brand"
-                                        @onclick="() => AbrirModalComentario(receta)">
+                                        @onclick="() => AbrirModalCrearComentario(receta)">
                                     <span class="bi bi-chat-dots"></span> Agregar comentario
                                 </button>
                             </div>
@@ -173,7 +177,7 @@
                                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
                                     <div>
                                         <h3 class="h6 mb-1">Comentarios</h3>
-                                        <p class="text-muted small mb-0">Los comentarios se publican con el usuario que inició sesión.</p>
+                                        <p class="text-muted small mb-0">Puedes agregar nuevos comentarios y editar o eliminar los tuyos.</p>
                                     </div>
                                     <small class="text-muted">
                                         Creada: @FormatearFecha(receta.CreadoUtc) | Actualizada: @FormatearFecha(receta.ModificadoUtc)
@@ -185,13 +189,36 @@
                                     <div class="row g-3">
                                         @foreach (var comentario in comentarios)
                                         {
+                                            var esDelUsuario = EsComentarioDelUsuario(comentario);
+
                                             <div class="col-12 col-lg-6">
                                                 <div class="border rounded p-3 h-100 bg-light">
                                                     <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
-                                                        <strong>@comentario.UsuarioNombre</strong>
+                                                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                            <strong>@comentario.UsuarioNombre</strong>
+                                                            @if (esDelUsuario)
+                                                            {
+                                                                <span class="badge bg-primary-subtle text-primary">Tú</span>
+                                                            }
+                                                        </div>
                                                         <small class="text-muted">@FormatearFecha(comentario.CreadoUtc)</small>
                                                     </div>
-                                                    <p class="mb-0">@comentario.Contenido</p>
+
+                                                    <p class="mb-3">@comentario.Contenido</p>
+
+                                                    @if (esDelUsuario)
+                                                    {
+                                                        <div class="d-flex gap-2">
+                                                            <button class="btn btn-sm btn-outline-primary"
+                                                                    @onclick="() => AbrirModalEditarComentario(receta, comentario)">
+                                                                <span class="bi bi-pencil"></span> Editar
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-danger"
+                                                                    @onclick="() => EliminarComentario(receta, comentario)">
+                                                                <span class="bi bi-trash"></span> Eliminar
+                                                            </button>
+                                                        </div>
+                                                    }
                                                 </div>
                                             </div>
                                         }
@@ -219,14 +246,16 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <div>
-                        <h5 class="modal-title mb-1">Agregar comentario</h5>
+                        <h5 class="modal-title mb-1">@(comentarioEditando is null ? "Agregar comentario" : "Editar comentario")</h5>
                         <small class="text-muted">@recetaSeleccionada.Titulo</small>
                     </div>
                     <button type="button" class="btn-close" @onclick="CerrarModalComentario"></button>
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-light border">
-                        El comentario se guardará con tu usuario autenticado.
+                        @(comentarioEditando is null
+                            ? "El comentario se guardará con tu usuario autenticado."
+                            : "Solo puedes editar comentarios creados por tu usuario.")
                     </div>
                     <div class="mb-0">
                         <label class="form-label">Comentario <span class="text-danger">*</span></label>
@@ -239,7 +268,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="CerrarModalComentario">Cancelar</button>
                     <button type="button" class="btn btn-brand" @onclick="GuardarComentario" disabled="@guardandoComentario">
-                        Guardar comentario
+                        @(comentarioEditando is null ? "Guardar comentario" : "Guardar cambios")
                     </button>
                 </div>
             </div>
@@ -256,7 +285,9 @@
     private bool cargando = true;
     private bool mostrarModalComentario;
     private bool guardandoComentario;
+    private string? usuarioActualId;
     private RecetaDto? recetaSeleccionada;
+    private ComentarioDto? comentarioEditando;
     private string contenidoComentario = string.Empty;
 
     private IEnumerable<RecetaDto> RecetasFiltradas
@@ -284,7 +315,17 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await CargarUsuarioActual();
         await CargarContenido();
+    }
+
+    private async Task CargarUsuarioActual()
+    {
+        var authenticationState = await authStateProvider.GetAuthenticationStateAsync();
+        var usuario = authenticationState.User;
+
+        usuarioActualId = usuario.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? usuario.FindFirst("sub")?.Value;
     }
 
     private async Task CargarContenido()
@@ -332,10 +373,20 @@
         busqueda = string.Empty;
     }
 
-    private void AbrirModalComentario(RecetaDto receta)
+    private void AbrirModalCrearComentario(RecetaDto receta)
     {
         recetaSeleccionada = receta;
+        comentarioEditando = null;
         contenidoComentario = string.Empty;
+        mensajeError = string.Empty;
+        mostrarModalComentario = true;
+    }
+
+    private void AbrirModalEditarComentario(RecetaDto receta, ComentarioDto comentario)
+    {
+        recetaSeleccionada = receta;
+        comentarioEditando = comentario;
+        contenidoComentario = comentario.Contenido;
         mensajeError = string.Empty;
         mostrarModalComentario = true;
     }
@@ -345,6 +396,7 @@
         mostrarModalComentario = false;
         guardandoComentario = false;
         recetaSeleccionada = null;
+        comentarioEditando = null;
         contenidoComentario = string.Empty;
     }
 
@@ -368,20 +420,40 @@
 
         try
         {
-            var comentario = await comentarioService.CrearComentario(new ComentarioCreacionDto
+            if (comentarioEditando is null)
             {
-                RecetaId = recetaSeleccionada.Id,
-                Contenido = contenidoComentario.Trim()
-            });
+                var comentario = await comentarioService.CrearComentario(new ComentarioCreacionDto
+                {
+                    RecetaId = recetaSeleccionada.Id,
+                    Contenido = contenidoComentario.Trim()
+                });
 
-            if (comentario is null)
+                if (comentario is null)
+                {
+                    mensajeError = "No se pudo guardar el comentario. Verifica que hayas iniciado sesión.";
+                    return;
+                }
+
+                mensajeExito = $"Comentario agregado a \"{recetaSeleccionada.Titulo}\".";
+            }
+            else
             {
-                mensajeError = "No se pudo guardar el comentario. Verifica que hayas iniciado sesión.";
-                return;
+                var actualizado = await comentarioService.ActualizarComentario(comentarioEditando.Id, new ComentarioModificacionDto
+                {
+                    RecetaId = recetaSeleccionada.Id,
+                    Contenido = contenidoComentario.Trim()
+                });
+
+                if (!actualizado)
+                {
+                    mensajeError = "No se pudo actualizar el comentario.";
+                    return;
+                }
+
+                mensajeExito = $"Comentario actualizado en \"{recetaSeleccionada.Titulo}\".";
             }
 
             await CargarComentariosDeReceta(recetaSeleccionada.Id);
-            mensajeExito = $"Comentario agregado a \"{recetaSeleccionada.Titulo}\".";
             CerrarModalComentario();
         }
         catch (Exception ex)
@@ -394,6 +466,35 @@
         }
     }
 
+    private async Task EliminarComentario(RecetaDto receta, ComentarioDto comentario)
+    {
+        var confirmar = await JSRuntime.InvokeAsync<bool>("confirm", "¿Eliminar este comentario?");
+        if (!confirmar)
+        {
+            return;
+        }
+
+        mensajeError = string.Empty;
+        mensajeExito = string.Empty;
+
+        try
+        {
+            var eliminado = await comentarioService.EliminarComentario(comentario.Id);
+            if (!eliminado)
+            {
+                mensajeError = "No se pudo eliminar el comentario.";
+                return;
+            }
+
+            await CargarComentariosDeReceta(receta.Id);
+            mensajeExito = $"Comentario eliminado de \"{receta.Titulo}\".";
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al eliminar comentario: {ex.Message}";
+        }
+    }
+
     private List<ComentarioDto> ObtenerComentarios(int recetaId)
     {
         if (comentariosPorReceta.TryGetValue(recetaId, out var comentarios))
@@ -402,6 +503,12 @@
         }
 
         return new List<ComentarioDto>();
+    }
+
+    private bool EsComentarioDelUsuario(ComentarioDto comentario)
+    {
+        return !string.IsNullOrWhiteSpace(usuarioActualId)
+            && string.Equals(comentario.UsuarioId, usuarioActualId, StringComparison.Ordinal);
     }
 
     private IEnumerable<string> ObtenerPasosInstrucciones(string instrucciones)

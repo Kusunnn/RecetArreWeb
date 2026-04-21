@@ -1,12 +1,40 @@
 @page "/recetas"
 @using Microsoft.AspNetCore.Authorization
+@using System.Security.Claims
 @using System.Text.RegularExpressions
 @attribute [Authorize]
 @inject IRecetaService recetaService
 @inject IComentarioService comentarioService
+@inject IRatingService ratingService
+@inject AuthenticationStateProvider authStateProvider
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Gestión de Recetas</PageTitle>
+
+<style>
+    .rating-button {
+        width: 2rem;
+        height: 2rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+    }
+
+    .rating-button:disabled {
+        opacity: 0.6;
+    }
+
+    .rating-star {
+        font-size: 1.35rem;
+        line-height: 1;
+    }
+
+    .recipe-comment-card-own {
+        border-color: rgba(13, 110, 253, 0.35) !important;
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+</style>
 
 <div class="container-fluid py-4">
     <div class="row mb-4">
@@ -14,7 +42,7 @@
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <h1 class="h3 text-brand mb-1">Gestión de Recetas</h1>
-                    <p class="text-muted mb-0">Administra tus recetas</p>
+                    <p class="text-muted mb-0">Administra tus recetas, comentarios y calificaciones.</p>
                 </div>
                 <button class="btn btn-brand" @onclick="AbrirModalCrear">
                     <span class="bi bi-plus-circle"></span> Nueva Receta
@@ -85,7 +113,10 @@
             {
                 var instruccionesVisibles = recetasConInstruccionesVisibles.Contains(receta.Id);
                 var comentarios = ObtenerComentarios(receta.Id);
-                <div class="col-12 col-sm-6 col-md-4 col-lg-3 mb-3">
+                var totalRatings = ObtenerTotalRatings(receta.Id);
+                var promedioRating = ObtenerPromedioRating(receta.Id);
+
+                <div class="col-12 col-md-6 mb-3">
                     <div class="card h-100 border-0 shadow-sm">
                         <div class="card-body d-flex flex-column">
                             <div class="d-flex justify-content-between align-items-start mb-2">
@@ -105,16 +136,21 @@
 
                             @if (instruccionesVisibles)
                             {
+                                var pasos = ObtenerPasosInstrucciones(receta.Instrucciones).ToList();
+
                                 <div class="recipe-instructions-panel border rounded bg-light p-3 mb-3">
-                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                                         <small class="recipe-instructions-label d-block mb-0">Instrucciones</small>
-                                        <span class="badge bg-light text-dark border recipe-comments-badge">
-                                            <span class="bi bi-chat-left-text"></span> @comentarios.Count comentario@(comentarios.Count == 1 ? "" : "s")
-                                        </span>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <span class="badge bg-light text-dark border recipe-comments-badge">
+                                                <span class="bi bi-chat-left-text"></span> @comentarios.Count comentario@(comentarios.Count == 1 ? "" : "s")
+                                            </span>
+                                            <span class="badge bg-light text-dark border">
+                                                <span class="bi bi-star-fill text-warning"></span> @ObtenerResumenPromedioRating(receta.Id)
+                                            </span>
+                                        </div>
                                     </div>
-                                    @{
-                                        var pasos = ObtenerPasosInstrucciones(receta.Instrucciones).ToList();
-                                    }
+
                                     @if (pasos.Count > 1)
                                     {
                                         <ol class="recipe-instructions-list mb-0">
@@ -129,17 +165,69 @@
                                         <p class="recipe-instructions-text mb-0">@pasos[0]</p>
                                     }
 
+                                    <div class="border rounded p-3 mt-3 bg-white">
+                                        <div class="d-flex flex-column gap-2">
+                                            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+                                                <div>
+                                                    <small class="recipe-instructions-label d-block mb-1">Ratings</small>
+                                                    <p class="text-muted small mb-0">
+                                                        @if (totalRatings == 0)
+                                                        {
+                                                            <span>Esta receta todavía no tiene ratings.</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span>Promedio: <strong>@($"{promedioRating:0.0}/5")</strong> basado en @totalRatings rating@(totalRatings == 1 ? "" : "s").</span>
+                                                        }
+                                                    </p>
+                                                </div>
+
+                                                <div class="text-lg-end">
+                                                    <div class="d-flex flex-wrap align-items-center justify-content-lg-end gap-1">
+                                                        @for (var estrella = 1; estrella <= 5; estrella++)
+                                                        {
+                                                            var estrellaActual = estrella;
+                                                            <button type="button"
+                                                                    class="btn btn-link p-0 border-0 text-decoration-none rating-button"
+                                                                    title="Calificar con @estrellaActual estrellas"
+                                                                    @onmousemove="(e) => ActualizarPreviewRating(receta.Id, estrellaActual, e)"
+                                                                    @onmouseleave="() => LimpiarPreviewRating(receta.Id)"
+                                                                    @onclick="(e) => GuardarRatingDesdeClick(receta, estrellaActual, e)"
+                                                                    disabled="@EstaGuardandoRating(receta.Id)">
+                                                                <span class="bi @ObtenerClaseRating(receta.Id, estrellaActual) rating-star"></span>
+                                                            </button>
+                                                        }
+                                                    </div>
+                                                    <small class="text-muted d-block mt-2">@ObtenerTextoRatingUsuario(receta.Id)</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div class="recipe-comments-section pt-3 mt-3 border-top">
-                                        <small class="recipe-instructions-label d-block mb-3">Comentarios</small>
+                                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+                                            <small class="recipe-instructions-label d-block mb-0">Comentarios</small>
+                                            <button class="btn btn-sm btn-brand" @onclick="() => AbrirModalComentario(receta)">
+                                                <span class="bi bi-pencil-square"></span>
+                                                Agregar comentario
+                                            </button>
+                                        </div>
 
                                         @if (comentarios.Any())
                                         {
                                             <div class="d-grid gap-2">
                                                 @foreach (var comentario in comentarios)
                                                 {
-                                                    <div class="recipe-comment-card border rounded p-3">
+                                                    var esDelUsuario = EsComentarioDelUsuario(comentario);
+                                                    <div class="recipe-comment-card border rounded p-3 @(esDelUsuario ? "recipe-comment-card-own" : string.Empty)">
                                                         <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
-                                                            <strong class="recipe-comment-author">@comentario.UsuarioNombre</strong>
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <strong class="recipe-comment-author">@comentario.UsuarioNombre</strong>
+                                                                @if (esDelUsuario)
+                                                                {
+                                                                    <span class="badge bg-primary-subtle text-primary">Tú</span>
+                                                                }
+                                                            </div>
                                                             <small class="text-muted">@FormatearFecha(comentario.CreadoUtc)</small>
                                                         </div>
                                                         <p class="recipe-comment-text mb-0">@comentario.Contenido</p>
@@ -188,6 +276,7 @@
                                     <th scope="col">Descripción</th>
                                     <th scope="col">Tiempos</th>
                                     <th scope="col">Porciones</th>
+                                    <th scope="col">Rating</th>
                                     <th scope="col" class="text-end">Acciones</th>
                                 </tr>
                             </thead>
@@ -202,6 +291,7 @@
                                             <td class="text-muted">@(string.IsNullOrWhiteSpace(receta.Descripcion) ? "-" : receta.Descripcion)</td>
                                             <td>@receta.TiempoPreparacionMinutos/@receta.TiempoCoccionMinutos min</td>
                                             <td>@receta.Porciones</td>
+                                            <td>@ObtenerResumenPromedioRating(receta.Id)</td>
                                             <td class="text-end">
                                                 <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => AbrirModalEditar(receta)">
                                                     <span class="bi bi-pencil"></span>
@@ -216,7 +306,7 @@
                                 else
                                 {
                                     <tr>
-                                        <td colspan="6" class="text-center text-muted py-4">
+                                        <td colspan="7" class="text-center text-muted py-4">
                                             No hay recetas para mostrar
                                         </td>
                                     </tr>
@@ -284,40 +374,101 @@
     </div>
 }
 
+@if (mostrarModalComentario && recetaComentarioSeleccionada is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title mb-1">Agregar comentario</h5>
+                        <small class="text-muted">@recetaComentarioSeleccionada.Titulo</small>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="CerrarModalComentario"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-light border">
+                        El comentario se guardará con tu usuario autenticado.
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label">Comentario <span class="text-danger">*</span></label>
+                        <textarea class="form-control"
+                                  rows="4"
+                                  @bind="contenidoComentario"
+                                  placeholder="Escribe aquí tu comentario..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModalComentario">Cancelar</button>
+                    <button type="button" class="btn btn-brand" @onclick="GuardarComentario" disabled="@guardandoComentario">
+                        Guardar comentario
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<RecetaDto>? recetas;
     private Dictionary<int, List<ComentarioDto>> comentariosPorReceta = new();
-    private string busqueda = "";
-    private bool mostrarModal = false;
-    private bool guardando = false;
-    private RecetaDto? recetaEditando = null;
-    private string tituloReceta = "";
-    private string descripcionReceta = "";
-    private string instruccionesReceta = "";
-    private int tiempoPreparacionReceta = 0;
-    private int tiempoCoccionReceta = 0;
+    private Dictionary<int, List<RatingDto>> ratingsPorReceta = new();
+    private readonly HashSet<int> recetasConInstruccionesVisibles = new();
+    private readonly HashSet<int> ratingsGuardandose = new();
+    private readonly Dictionary<int, decimal> previewRatingsPorReceta = new();
+    private string busqueda = string.Empty;
+    private bool mostrarModal;
+    private bool guardando;
+    private bool mostrarModalComentario;
+    private bool guardandoComentario;
+    private string? usuarioActualId;
+    private RecetaDto? recetaEditando;
+    private RecetaDto? recetaComentarioSeleccionada;
+    private string tituloReceta = string.Empty;
+    private string descripcionReceta = string.Empty;
+    private string instruccionesReceta = string.Empty;
+    private string contenidoComentario = string.Empty;
+    private int tiempoPreparacionReceta;
+    private int tiempoCoccionReceta;
     private int porcionesReceta = 1;
     private bool publicadaReceta = true;
     private string mensajeError = string.Empty;
     private string mensajeExito = string.Empty;
-    private readonly HashSet<int> recetasConInstruccionesVisibles = new();
 
     private IEnumerable<RecetaDto> RecetasFiltradas
     {
         get
         {
-            if (recetas == null) return Enumerable.Empty<RecetaDto>();
-            if (string.IsNullOrWhiteSpace(busqueda)) return recetas;
+            if (recetas == null)
+            {
+                return Enumerable.Empty<RecetaDto>();
+            }
+
+            if (string.IsNullOrWhiteSpace(busqueda))
+            {
+                return recetas;
+            }
 
             return recetas.Where(r =>
                 r.Titulo.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
-                (r.Descripcion?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false));
+                (r.Descripcion?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                r.Instrucciones.Contains(busqueda, StringComparison.OrdinalIgnoreCase));
         }
     }
 
     protected override async Task OnInitializedAsync()
     {
+        await CargarUsuarioActual();
         await CargarRecetas();
+    }
+
+    private async Task CargarUsuarioActual()
+    {
+        var authState = await authStateProvider.GetAuthenticationStateAsync();
+        var usuario = authState.User;
+
+        usuarioActualId = usuario.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? usuario.FindFirst("sub")?.Value;
     }
 
     private async Task CargarRecetas()
@@ -326,12 +477,14 @@
         {
             recetas = await recetaService.ObtenerTodas();
             await CargarComentarios();
+            await CargarRatings();
         }
         catch (Exception ex)
         {
             mensajeError = $"Error al cargar recetas: {ex.Message}";
             recetas = new List<RecetaDto>();
             comentariosPorReceta = new Dictionary<int, List<ComentarioDto>>();
+            ratingsPorReceta = new Dictionary<int, List<RatingDto>>();
         }
     }
 
@@ -345,12 +498,38 @@
                 g => g.OrderByDescending(c => c.CreadoUtc).ToList());
     }
 
+    private async Task CargarComentariosDeReceta(int recetaId)
+    {
+        var comentarios = await comentarioService.ObtenerPorReceta(recetaId);
+        comentariosPorReceta[recetaId] = comentarios
+            .OrderByDescending(c => c.CreadoUtc)
+            .ToList();
+    }
+
+    private async Task CargarRatings()
+    {
+        var ratings = await ratingService.ObtenerTodos();
+        ratingsPorReceta = ratings
+            .GroupBy(r => r.RecetaId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(r => r.CreadoUtc).ToList());
+    }
+
+    private async Task CargarRatingsDeReceta(int recetaId)
+    {
+        var ratings = await ratingService.ObtenerPorReceta(recetaId);
+        ratingsPorReceta[recetaId] = ratings
+            .OrderByDescending(r => r.CreadoUtc)
+            .ToList();
+    }
+
     private void AbrirModalCrear()
     {
         recetaEditando = null;
-        tituloReceta = "";
-        descripcionReceta = "";
-        instruccionesReceta = "";
+        tituloReceta = string.Empty;
+        descripcionReceta = string.Empty;
+        instruccionesReceta = string.Empty;
         tiempoPreparacionReceta = 0;
         tiempoCoccionReceta = 0;
         porcionesReceta = 1;
@@ -363,7 +542,7 @@
     {
         recetaEditando = receta;
         tituloReceta = receta.Titulo;
-        descripcionReceta = receta.Descripcion ?? "";
+        descripcionReceta = receta.Descripcion ?? string.Empty;
         instruccionesReceta = receta.Instrucciones;
         tiempoPreparacionReceta = receta.TiempoPreparacionMinutos;
         tiempoCoccionReceta = receta.TiempoCoccionMinutos;
@@ -415,8 +594,6 @@
                 }
 
                 mensajeExito = "Receta creada exitosamente";
-                await CargarRecetas();
-                CerrarModal();
             }
             else
             {
@@ -439,9 +616,10 @@
                 }
 
                 mensajeExito = "Receta actualizada exitosamente";
-                await CargarRecetas();
-                CerrarModal();
             }
+
+            await CargarRecetas();
+            CerrarModal();
         }
         catch (Exception ex)
         {
@@ -456,7 +634,9 @@
     private async Task EliminarReceta(int id)
     {
         if (!await JSRuntime.InvokeAsync<bool>("confirm", "¿Estás seguro de eliminar esta receta?"))
+        {
             return;
+        }
 
         mensajeError = string.Empty;
         mensajeExito = string.Empty;
@@ -479,9 +659,121 @@
         }
     }
 
+    private void AbrirModalComentario(RecetaDto receta)
+    {
+        recetaComentarioSeleccionada = receta;
+        contenidoComentario = string.Empty;
+        mensajeError = string.Empty;
+        mostrarModalComentario = true;
+    }
+
+    private void CerrarModalComentario()
+    {
+        mostrarModalComentario = false;
+        guardandoComentario = false;
+        recetaComentarioSeleccionada = null;
+        contenidoComentario = string.Empty;
+    }
+
+    private async Task GuardarComentario()
+    {
+        if (recetaComentarioSeleccionada is null)
+        {
+            mensajeError = "No se encontró la receta seleccionada.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(contenidoComentario))
+        {
+            mensajeError = "El comentario es requerido.";
+            return;
+        }
+
+        guardandoComentario = true;
+        mensajeError = string.Empty;
+        mensajeExito = string.Empty;
+
+        try
+        {
+            var comentario = await comentarioService.CrearComentario(new ComentarioCreacionDto
+            {
+                RecetaId = recetaComentarioSeleccionada.Id,
+                Contenido = contenidoComentario.Trim()
+            });
+
+            if (comentario is null)
+            {
+                mensajeError = "No se pudo guardar el comentario. Verifica que hayas iniciado sesión.";
+                return;
+            }
+
+            await CargarComentariosDeReceta(recetaComentarioSeleccionada.Id);
+            mensajeExito = $"Comentario agregado a \"{recetaComentarioSeleccionada.Titulo}\".";
+            CerrarModalComentario();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al guardar comentario: {ex.Message}";
+        }
+        finally
+        {
+            guardandoComentario = false;
+        }
+    }
+
+    private async Task GuardarRatingDesdeClick(RecetaDto receta, int estrella, MouseEventArgs e)
+    {
+        var valor = ObtenerValorRatingDesdeEvento(estrella, e);
+        await GuardarRating(receta, valor);
+        LimpiarPreviewRating(receta.Id);
+    }
+
+    private async Task GuardarRating(RecetaDto receta, decimal estrellas)
+    {
+        if (string.IsNullOrWhiteSpace(usuarioActualId))
+        {
+            mensajeError = "No se pudo identificar al usuario autenticado.";
+            return;
+        }
+
+        if (!ratingsGuardandose.Add(receta.Id))
+        {
+            return;
+        }
+
+        mensajeError = string.Empty;
+        mensajeExito = string.Empty;
+
+        try
+        {
+            var rating = await ratingService.CrearOActualizarRating(new RatingCreacionDto
+            {
+                RecetaId = receta.Id,
+                Estrellas = estrellas
+            });
+
+            if (rating is null)
+            {
+                mensajeError = "No se pudo guardar la calificación. Verifica que hayas iniciado sesión.";
+                return;
+            }
+
+            await CargarRatingsDeReceta(receta.Id);
+            mensajeExito = $"Calificaste \"{receta.Titulo}\" con {FormatearValorRating(estrellas)}/5.";
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al guardar rating: {ex.Message}";
+        }
+        finally
+        {
+            ratingsGuardandose.Remove(receta.Id);
+        }
+    }
+
     private void LimpiarBusqueda()
     {
-        busqueda = "";
+        busqueda = string.Empty;
     }
 
     private void ToggleInstrucciones(int recetaId)
@@ -490,6 +782,62 @@
         {
             recetasConInstruccionesVisibles.Remove(recetaId);
         }
+    }
+
+    private void ActualizarPreviewRating(int recetaId, int estrella, MouseEventArgs e)
+    {
+        previewRatingsPorReceta[recetaId] = ObtenerValorRatingDesdeEvento(estrella, e);
+    }
+
+    private void LimpiarPreviewRating(int recetaId)
+    {
+        previewRatingsPorReceta.Remove(recetaId);
+    }
+
+    private decimal ObtenerValorRatingDesdeEvento(int estrella, MouseEventArgs e)
+    {
+        var offset = e.OffsetX;
+        return offset <= 16 ? estrella - 0.5m : estrella;
+    }
+
+    private string ObtenerClaseRating(int recetaId, int estrella)
+    {
+        var valor = ObtenerValorRatingInteractivo(recetaId);
+
+        if (valor >= estrella)
+        {
+            return "bi-star-fill text-warning";
+        }
+
+        if (valor >= estrella - 0.5m)
+        {
+            return "bi-star-half text-warning";
+        }
+
+        return "bi-star text-muted";
+    }
+
+    private string ObtenerTextoRatingUsuario(int recetaId)
+    {
+        if (previewRatingsPorReceta.TryGetValue(recetaId, out var preview))
+        {
+            return $"Vista previa: {FormatearValorRating(preview)}/5";
+        }
+
+        var ratingUsuario = ObtenerRatingUsuario(recetaId);
+        return ratingUsuario is null
+            ? "Aún no calificas esta receta."
+            : $"Tu calificación actual: {FormatearValorRating(ratingUsuario.Estrellas)}/5";
+    }
+
+    private decimal ObtenerValorRatingInteractivo(int recetaId)
+    {
+        if (previewRatingsPorReceta.TryGetValue(recetaId, out var preview))
+        {
+            return preview;
+        }
+
+        return ObtenerRatingUsuario(recetaId)?.Estrellas ?? 0m;
     }
 
     private IEnumerable<string> ObtenerPasosInstrucciones(string instrucciones)
@@ -503,8 +851,8 @@
         var pasos = Regex.Split(texto, @"\r?\n\s*\r?\n|\r?\n|(?<=\.)\s+(?=[A-ZÁÉÍÓÚÑ0-9])|(?<=;)\s+")
             .Select(p => p.Trim())
             .Where(p => !string.IsNullOrWhiteSpace(p))
-            .Select(p => Regex.Replace(p, @"^[\-\*\u2022]\s*", ""))
-            .Select(p => Regex.Replace(p, @"^\d+[\.\)\-:]\s*", ""))
+            .Select(p => Regex.Replace(p, @"^[\-\*\u2022]\s*", string.Empty))
+            .Select(p => Regex.Replace(p, @"^\d+[\.\)\-:]\s*", string.Empty))
             .ToList();
 
         return pasos.Count == 0 ? new[] { texto } : pasos;
@@ -518,6 +866,62 @@
         }
 
         return new List<ComentarioDto>();
+    }
+
+    private bool EsComentarioDelUsuario(ComentarioDto comentario)
+    {
+        return !string.IsNullOrWhiteSpace(usuarioActualId)
+            && string.Equals(comentario.UsuarioId, usuarioActualId, StringComparison.Ordinal);
+    }
+
+    private List<RatingDto> ObtenerRatings(int recetaId)
+    {
+        if (ratingsPorReceta.TryGetValue(recetaId, out var ratings))
+        {
+            return ratings;
+        }
+
+        return new List<RatingDto>();
+    }
+
+    private RatingDto? ObtenerRatingUsuario(int recetaId)
+    {
+        if (string.IsNullOrWhiteSpace(usuarioActualId))
+        {
+            return null;
+        }
+
+        return ObtenerRatings(recetaId)
+            .FirstOrDefault(r => string.Equals(r.UsuarioId, usuarioActualId, StringComparison.Ordinal));
+    }
+
+    private int ObtenerTotalRatings(int recetaId)
+    {
+        return ObtenerRatings(recetaId).Count;
+    }
+
+    private decimal ObtenerPromedioRating(int recetaId)
+    {
+        var ratings = ObtenerRatings(recetaId);
+        return ratings.Count == 0 ? 0m : ratings.Average(r => r.Estrellas);
+    }
+
+    private string ObtenerResumenPromedioRating(int recetaId)
+    {
+        var totalRatings = ObtenerTotalRatings(recetaId);
+        return totalRatings == 0
+            ? "Sin ratings"
+            : $"{FormatearValorRating(ObtenerPromedioRating(recetaId))}/5 · {totalRatings} rating{(totalRatings == 1 ? string.Empty : "s")}";
+    }
+
+    private bool EstaGuardandoRating(int recetaId)
+    {
+        return ratingsGuardandose.Contains(recetaId);
+    }
+
+    private static string FormatearValorRating(decimal valor)
+    {
+        return valor % 1 == 0 ? valor.ToString("0") : valor.ToString("0.0");
     }
 
     private static string FormatearFecha(DateTime fecha)

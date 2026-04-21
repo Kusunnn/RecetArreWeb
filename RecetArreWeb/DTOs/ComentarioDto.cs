@@ -21,4 +21,14 @@ namespace RecetArreWeb.DTOs
         [Required]
         public int RecetaId { get; set; }
     }
+
+    public class ComentarioModificacionDto
+    {
+        [Required]
+        [StringLength(1000, MinimumLength = 1)]
+        public string Contenido { get; set; } = default!;
+
+        [Required]
+        public int RecetaId { get; set; }
+    }
 }
